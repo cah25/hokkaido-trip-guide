@@ -2075,18 +2075,24 @@ var rp=X.map.querySelector('.sbm-replay');if(rp)rp.addEventListener('click',func
 var recBtn=document.getElementById('storybookRecord'),layer=book.querySelector('.sb-rec-layer'),rec=null;
 function msg(big,small,ms){layer.querySelector('.sbr-count').textContent=big;layer.querySelector('.sbr-hint').textContent=small;layer.classList.add('on');if(ms){clearTimeout(layer._t);layer._t=setTimeout(function(){layer.classList.remove('on')},ms)}}
 function clickNext(){var b=document.getElementById('storybookNext');try{b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))}catch(e){}b.click()}
-function step(){if(!rec)return;var d=7000;
-  if(state==='cover'){go(1);d=7000}
-  else if(state===null){clickNext();d=state==='map'?15500:7000}
-  else if(state==='map'){go(1);d=6500}
-  else if(state==='back'){stopRec(true);return}
-  rec.t=setTimeout(step,d)}
+function audios(){return [].slice.call(reader.querySelectorAll('.story-dialogue-audio'))}
+function hush(){audios().forEach(function(a){try{a.pause();a.currentTime=0;a.onended=null}catch(e){}})}
+function speakThen(){if(!rec)return;var st=stops()[idx()],a=st&&st.querySelector('.story-dialogue-audio');
+  if(!a){rec.t=setTimeout(step,7000);return}hush();var done=false;
+  var fin=function(){if(done)return;done=true;a.onended=null;clearTimeout(rec&&rec.s);if(rec)rec.t=setTimeout(step,1300)};
+  a.onended=fin;rec.s=setTimeout(fin,45000);
+  try{a.currentTime=0;var pr=a.play();if(pr&&pr.catch)pr.catch(function(){if(done)return;done=true;clearTimeout(rec&&rec.s);if(rec)rec.t=setTimeout(step,7000)})}catch(e){fin()}}
+function step(){if(!rec)return;
+  if(state==='cover'){go(1);rec.t=setTimeout(speakThen,1000);return}
+  if(state===null){clickNext();if(state==='map'){hush();rec.t=setTimeout(step,15500)}else rec.t=setTimeout(speakThen,1000);return}
+  if(state==='map'){go(1);rec.t=setTimeout(step,6500);return}
+  if(state==='back'){stopRec(true);return}}
 function startRec(){if(rec)return;rec={};document.body.classList.add('sb-rec');recBtn.setAttribute('aria-pressed','true');
   var auto=document.getElementById('storybookAuto');if(auto&&auto.getAttribute('aria-pressed')==='true')auto.click();
   var mb=document.getElementById('journeyMusicButton');if(mb&&mb.getAttribute('aria-pressed')!=='true')mb.click();
   show('cover');rec.ready=false;toFirst(function(){if(rec)rec.ready=true});setTimeout(function(){window.dispatchEvent(new Event('resize'))},30);
   var c=3,H='請先開始螢幕錄影・點畫面可隨時停止';msg('3',H);rec.c=setInterval(function(){if(!rec)return;c--;if(c>0){msg(String(c),H)}else if(rec.ready){clearInterval(rec.c);layer.classList.remove('on');rec.t=setTimeout(step,2500)}else{msg('準備中',H)}},1000)}
-function stopRec(done){if(!rec)return;clearTimeout(rec.t);clearInterval(rec.c);rec=null;document.body.classList.remove('sb-rec');recBtn.setAttribute('aria-pressed','false');setTimeout(function(){window.dispatchEvent(new Event('resize'))},30);
+function stopRec(done){if(!rec)return;clearTimeout(rec.t);clearTimeout(rec.s);hush();clearInterval(rec.c);rec=null;document.body.classList.remove('sb-rec');recBtn.setAttribute('aria-pressed','false');setTimeout(function(){window.dispatchEvent(new Event('resize'))},30);
   msg(done?'錄影完成':'已停止',done?'可以停止螢幕錄影了':'錄影模式已關閉',2600)}
 recBtn.addEventListener('click',function(e){e.stopPropagation();rec?stopRec(false):startRec()});
 document.addEventListener('click',function(e){if(!rec||!e.isTrusted)return;if(e.target.closest('#storybookReader')){e.preventDefault();e.stopImmediatePropagation();stopRec(false)}},true);
